@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  db:
+    image: mysql:8.1.0
+    container_name: mysql-8
+    restart: always
+    environment:
+      MYSQL_DATABASE: exchange
+      MYSQL_USER: db_user
+      MYSQL_PASSWORD: pw123
+      MYSQL_ROOT_PASSWORD: db_root_password
+    ports:
+      - "3306:3306"
+    # volumes:
+    #   - db_data:/var/lib/mysql
