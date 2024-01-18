@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"os"
 	"time"
 )
 
@@ -25,4 +26,18 @@ func main() {
 		panic(err)
 	}
 	println(string(body))
+	saveQuotation(string(body))
+}
+
+func saveQuotation(value string) {
+	f, err := os.Create("cotacao.txt")
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+
+	_, err = f.WriteString("Dólar: " + value)
+	if err != nil {
+		panic(err)
+	}
 }
