@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"time"
@@ -17,18 +16,25 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	res, err := http.DefaultClient.Do(req)
-	if err != nil {
-		log.Println("Tempo de resposta de 300ms excedido")
+
+	select {
+	case <-ctx.Done():
+		println("Tempo de 300ms excedido")
 		return
+	default:
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			panic(err)
+		}
+		defer res.Body.Close()
+		body, err := io.ReadAll(res.Body)
+		if err != nil {
+			panic(err)
+		}
+		println(string(body))
+		saveQuotation(string(body))
 	}
-	defer res.Body.Close()
-	body, err := io.ReadAll(res.Body)
-	if err != nil {
-		panic(err)
-	}
-	println(string(body))
-	saveQuotation(string(body))
+
 }
 
 func saveQuotation(value string) {
