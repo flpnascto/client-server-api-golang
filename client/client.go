@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"time"
@@ -18,7 +19,8 @@ func main() {
 	}
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
-		panic(err)
+		log.Println("Tempo de resposta de 300ms excedido")
+		return
 	}
 	defer res.Body.Close()
 	body, err := io.ReadAll(res.Body)
