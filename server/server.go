@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"time"
 
-	_ "github.com/go-sql-driver/mysql"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 type Quotation struct {
@@ -114,7 +114,7 @@ func fetchQuotationAPI(ctx context.Context) (Quotation, error) {
 func registerQuotation(q Quotation) {
 	// ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
 	// defer cancel()
-	db, err := sql.Open("mysql", "db_user:pw123@tcp(localhost:3306)/exchange")
+	db, err := sql.Open("sqlite3", "./exchange.db")
 	if err != nil {
 		panic(err)
 	}
@@ -131,7 +131,7 @@ func insertQuotation(db *sql.DB, q Quotation) error {
 		return err
 	}
 	defer stmt.Close()
-	_, err = stmt.Exec(q.CodeOut, q.CodeIn, q.Bid, q.Timestamp)
+	_, err = stmt.Exec(q.CodeOut, q.CodeIn, q.Bid, q.Timestamp.Unix())
 	if err != nil {
 		return err
 	}
