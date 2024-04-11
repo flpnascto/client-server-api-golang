@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"time"
 
@@ -54,10 +55,43 @@ func QuotationMapper(q QuotationResponse) Quotation {
 	}
 }
 
+const dbFilePath = "./exchange.db"
+
 func main() {
+	CreateDatabaseAndTable(dbFilePath)
 	mux := http.NewServeMux()
 	mux.HandleFunc("/cotacao", QuotationHandler)
 	http.ListenAndServe(":8080", mux)
+}
+
+func CreateDatabaseAndTable(filename string) {
+	os.Remove(filename)
+	file, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+
+	db, err := sql.Open("sqlite3", dbFilePath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
+	sqlStmt := `
+    CREATE TABLE IF NOT EXISTS quotations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        code_out TEXT NOT NULL,
+        code_in TEXT NOT NULL,
+        bid REAL NOT NULL,
+        timestamp INTEGER NOT NULL
+    );
+    `
+	_, err = db.Exec(sqlStmt)
+	if err != nil {
+		log.Printf("%q: %s\n", err, sqlStmt)
+		return
+	}
 }
 
 func QuotationHandler(w http.ResponseWriter, r *http.Request) {
@@ -114,7 +148,7 @@ func fetchQuotationAPI(ctx context.Context) (Quotation, error) {
 func registerQuotation(q Quotation) {
 	// ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
 	// defer cancel()
-	db, err := sql.Open("sqlite3", "./exchange.db")
+	db, err := sql.Open("sqlite3", dbFilePath)
 	if err != nil {
 		panic(err)
 	}
