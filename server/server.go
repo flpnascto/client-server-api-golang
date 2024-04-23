@@ -100,17 +100,21 @@ func QuotationHandler(w http.ResponseWriter, r *http.Request) {
 	select {
 	case <-r.Context().Done():
 		log.Println("Request encerrada pelo cliente")
-		// w.WriteHeader(http.StatusInternalServerError)
-		// return
 	case <-ctx.Done():
-		log.Println("Tempo de 200ms excedido")
-		w.WriteHeader(http.StatusGatewayTimeout)
+		if ctx.Err() == context.DeadlineExceeded {
+			log.Println("Tempo de 200ms excedido durante a inserção no banco de dados")
+			w.WriteHeader(http.StatusGatewayTimeout)
+			return
+		}
 		return
 	default:
 		q, err := fetchQuotationAPI(ctx)
 		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			return
+			if ctx.Err() == context.DeadlineExceeded {
+				log.Println("Tempo de 200ms excedido")
+				return
+			}
+			panic(err)
 		}
 		bStr := strconv.FormatFloat(float64(q.Bid), 'f', -1, 32)
 
@@ -121,8 +125,6 @@ func QuotationHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func fetchQuotationAPI(ctx context.Context) (Quotation, error) {
-	// ctx, cancel := context.WithTimeout(ctx, 200*time.Millisecond)
-	// defer cancel()
 	log.Println("Requisição à API de cotação iniciada")
 	defer log.Println("Requisição à API de cotação finalizada")
 	req, err := http.Get("https://economia.awesomeapi.com.br/json/last/USD-BRL")
@@ -146,26 +148,37 @@ func fetchQuotationAPI(ctx context.Context) (Quotation, error) {
 }
 
 func registerQuotation(q Quotation) {
-	// ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
-	// defer cancel()
-	db, err := sql.Open("sqlite3", dbFilePath)
-	if err != nil {
-		panic(err)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer cancel()
+	select {
+	case <-ctx.Done():
+		return
+	default:
+		db, err := sql.Open("sqlite3", dbFilePath)
+		if err != nil {
+			panic(err)
+		}
+		err = insertQuotation(db, q, ctx)
+		if err != nil {
+			if ctx.Err() == context.DeadlineExceeded {
+				log.Println("Tempo de 200ms excedido")
+				return
+			}
+			panic(err)
+		}
+		defer db.Close()
+		log.Println("Cotação registrada no banco de dados com sucesso")
 	}
-	err = insertQuotation(db, q)
-	if err != nil {
-		panic(err)
-	}
-	defer db.Close()
+
 }
 
-func insertQuotation(db *sql.DB, q Quotation) error {
+func insertQuotation(db *sql.DB, q Quotation, ctx context.Context) error {
 	stmt, err := db.Prepare("insert into quotations(code_out,code_in,bid,timestamp) values(?, ?, ?, ?)")
 	if err != nil {
 		return err
 	}
 	defer stmt.Close()
-	_, err = stmt.Exec(q.CodeOut, q.CodeIn, q.Bid, q.Timestamp.Unix())
+	_, err = stmt.ExecContext(ctx, q.CodeOut, q.CodeIn, q.Bid, q.Timestamp.Unix())
 	if err != nil {
 		return err
 	}
