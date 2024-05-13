@@ -150,26 +150,20 @@ func fetchQuotationAPI(ctx context.Context) (Quotation, error) {
 func registerQuotation(q Quotation) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
 	defer cancel()
-	select {
-	case <-ctx.Done():
-		return
-	default:
-		db, err := sql.Open("sqlite3", dbFilePath)
-		if err != nil {
-			panic(err)
-		}
-		err = insertQuotation(db, q, ctx)
-		if err != nil {
-			if ctx.Err() == context.DeadlineExceeded {
-				log.Println("Tempo de 200ms excedido")
-				return
-			}
-			panic(err)
-		}
-		defer db.Close()
-		log.Println("Cotação registrada no banco de dados com sucesso")
+	db, err := sql.Open("sqlite3", dbFilePath)
+	if err != nil {
+		panic(err)
 	}
-
+	err = insertQuotation(db, q, ctx)
+	if err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			log.Println("Tempo de 10ms excedido")
+			return
+		}
+		panic(err)
+	}
+	defer db.Close()
+	log.Println("Cotação registrada no banco de dados com sucesso")
 }
 
 func insertQuotation(db *sql.DB, q Quotation, ctx context.Context) error {
